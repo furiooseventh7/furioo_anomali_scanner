@@ -56,7 +56,7 @@ def _get_with_fallback(path: str, base_urls: list, params: dict = None) -> Optio
 
 def get_all_tickers_24h() -> pd.DataFrame:
     """Ambil ticker 24H semua pasangan USDT dari Binance Spot."""
-    data = _get(f"{BINANCE_SPOT}/api/v3/ticker/24hr")
+    data = _get_with_fallback("/api/v3/ticker/24hr", BINANCE_SPOT_URLS)
     if not data:
         return pd.DataFrame()
 
@@ -145,8 +145,9 @@ def get_order_book(symbol: str, limit: int = 100) -> dict:
 
 def get_futures_symbols() -> set:
     """Ambil semua simbol aktif di Binance Futures."""
-    data = _get(f"{BINANCE_FUTURES}/fapi/v1/exchangeInfo")
+    data = _get_with_fallback("/fapi/v1/exchangeInfo", BINANCE_FUTURES_URLS)
     if not data:
+        logger.warning("Futures symbols tidak bisa diambil — lanjut tanpa data futures.")
         return set()
     return {s["symbol"] for s in data.get("symbols", []) if s["status"] == "TRADING"}
 
