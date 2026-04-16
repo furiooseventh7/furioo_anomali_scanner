@@ -101,13 +101,15 @@ def run():
     # ── Fetch global data (sekali) ────────────────────────
     logger.info("📡 Fetching global market data...")
     df_ticker   = get_all_tickers_24h()
-    futures_set = get_futures_symbols()
+    futures_set = get_futures_symbols()   # bisa empty set jika semua futures URL gagal
     fear_greed  = get_fear_greed_index()
 
     if df_ticker.empty:
-        logger.error("Gagal ambil ticker data")
-        return
+        logger.error("❌ Gagal ambil ticker data dari semua Binance endpoint. Cek koneksi / IP block.")
+        raise SystemExit(1)   # Buat GitHub Actions mark job sebagai FAILED (bukan diam-diam selesai)
 
+    if not futures_set:
+        logger.warning("⚠️ Futures symbols kosong — scan tetap jalan tapi sinyal derivatif mungkin tidak akurat.")
     logger.info(f"✅ Tickers: {len(df_ticker)} | Futures: {len(futures_set)} | F&G: {fear_greed}")
 
     # ── Ambil CoinGecko untuk top 250 by volume ───────────
