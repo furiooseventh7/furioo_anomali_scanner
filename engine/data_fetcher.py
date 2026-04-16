@@ -7,9 +7,11 @@ import pandas as pd
 import logging
 import time
 from typing import Optional
-from config import BINANCE_SPOT, BINANCE_FUTURES, COINGECKO, FEAR_GREED_API
-
-logger = logging.getLogger(__name__)
+from config import (
+    BINANCE_SPOT_URLS, BINANCE_FUTURES_URLS,
+    BINANCE_SPOT, BINANCE_FUTURES,
+    COINGECKO, FEAR_GREED_API
+)
 
 HEADERS = {"User-Agent": "CMI-ASS/1.0"}
 TIMEOUT = 15
@@ -23,6 +25,30 @@ def _get(url: str, params: dict = None) -> Optional[dict | list]:
     except Exception as e:
         logger.error(f"GET {url}: {e}")
         return None
+
+def _get_with_fallback(path: str, base_urls: list, params: dict = None) -> Optional[dict | list]:
+    """
+    HTTP GET dengan fallback ke multiple base URL.
+    Dipakai untuk Binance endpoint yang bisa diblokir di cloud runner.
+    path  = bagian URL setelah domain, contoh: "/api/v3/ticker/24hr"
+    """
+    last_error = None
+    for base in base_urls:
+        url = f"{base}{path}"
+        try:
+            r = requests.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
+            r.raise_for_status()
+            logger.debug(f"OK dari {base}")
+            return r.json()
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            logger.warning(f"HTTP {status} dari {base}{path} — coba fallback berikutnya")
+            last_error = e
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Connection error dari {base}{path}: {e} — coba fallback berikutnya")
+            last_error = e
+    logger.error(f"Semua {len(base_urls)} endpoint gagal untuk path {path}. Error terakhir: {last_error}")
+    return None
 
 # ─────────────────────────────────────────────────────────
 #  SPOT MARKET DATA
