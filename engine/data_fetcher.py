@@ -249,10 +249,10 @@ def get_klines(symbol: str, interval: str = "1h", limit: int = 168) -> pd.DataFr
     # ── Bitget ─────────────────────────────────────────────
     # Bitget interval: "1H" (uppercase) | granularity mapping
     interval_map = {
-        "1m": "1min", "3m": "3min", "5m": "5min", "15m": "15min",
-        "30m": "30min", "1h": "1H", "4h": "4H", "1d": "1Dutc",
+       "1m": "1min", "3m": "3min", "5m": "5min", "15m": "15min",
+        "30m": "30min", "1h": "1h", "4h": "4h", "1d": "1day",
     }
-    bg_interval = interval_map.get(interval, "1H")
+    bg_interval = interval_map.get(interval, "1h")
     data = _get_bitget("/api/v2/spot/market/candles", {
         "symbol"      : symbol,
         "granularity" : bg_interval,
@@ -273,19 +273,31 @@ def get_klines(symbol: str, interval: str = "1h", limit: int = 168) -> pd.DataFr
 
     # ── MEXC fallback (Binance-compatible) ─────────────────
     logger.warning(f"Bitget klines gagal untuk {symbol} → mencoba MEXC")
+    mexc_interval_map = {
+        "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m",
+        "30m": "30m", "1h": "60m", "4h": "4h", "1d": "1d",
+    }
+    mx_interval = mexc_interval_map.get(interval, "60m")
     data = _get_mexc("/api/v3/klines", {
         "symbol"   : symbol,
-        "interval" : interval,
+        "interval" : mx_interval,
         "limit"    : limit,
     })
     if not data:
         return pd.DataFrame()
 
-    df = pd.DataFrame(data, columns=[
-        "open_time", "open", "high", "low", "close", "volume",
-        "close_time", "quote_volume", "trades",
-        "taker_buy_base", "taker_buy_quote", "ignore"
-    ])
+    ncols = len(data[0]) if data else 0
+    if ncols >= 12:
+        kline_cols = ["open_time", "open", "high", "low", "close", "volume",
+                      "close_time", "quote_volume", "trades",
+                      "taker_buy_base", "taker_buy_quote", "ignore"]
+    elif ncols == 8:
+        kline_cols = ["open_time", "open", "high", "low", "close", "volume",
+                      "close_time", "quote_volume"]
+    else:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(data, columns=kline_cols)
     for c in ["open", "high", "low", "close", "volume", "quote_volume",
               "taker_buy_base", "taker_buy_quote"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
