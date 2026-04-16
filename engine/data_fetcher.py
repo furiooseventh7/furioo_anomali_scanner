@@ -259,10 +259,11 @@ def get_klines(symbol: str, interval: str = "1h", limit: int = 168) -> pd.DataFr
         "limit"       : limit,
     })
     if data and isinstance(data, list):
-        # Bitget candle: [timestamp, open, high, low, close, volume, quoteVolume]
-        df = pd.DataFrame(data, columns=[
-            "open_time", "open", "high", "low", "close", "volume", "quote_volume",
-        ])
+        # Bitget candle: [timestamp, open, high, low, close, volume, quoteVolume, (extra)]
+        ncols_bg = len(data[0]) if data else 7
+        bg_cols = ["open_time", "open", "high", "low", "close", "volume", "quote_volume",
+                   "extra1", "extra2", "extra3"][:ncols_bg]
+        df = pd.DataFrame(data, columns=bg_cols)
         for c in ["open", "high", "low", "close", "volume", "quote_volume"]:
             df[c] = pd.to_numeric(df[c], errors="coerce")
         df["open_time"]    = pd.to_datetime(df["open_time"].astype(float), unit="ms")
