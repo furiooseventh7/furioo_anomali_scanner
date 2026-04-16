@@ -286,21 +286,28 @@ def get_klines(symbol: str, interval: str = "1h", limit: int = 168) -> pd.DataFr
     if not data:
         return pd.DataFrame()
 
-    ncols = len(data[0]) if data else 0
+    try:
+        first = data[0]
+        ncols = len(first) if isinstance(first, (list, tuple)) else 0
+    except (IndexError, TypeError):
+        return pd.DataFrame()
+
     if ncols >= 12:
         kline_cols = ["open_time", "open", "high", "low", "close", "volume",
                       "close_time", "quote_volume", "trades",
                       "taker_buy_base", "taker_buy_quote", "ignore"]
-    elif ncols == 8:
+    elif ncols >= 6:
         kline_cols = ["open_time", "open", "high", "low", "close", "volume",
-                      "close_time", "quote_volume"]
+                      "close_time", "quote_volume"][:ncols]
     else:
         return pd.DataFrame()
 
     df = pd.DataFrame(data, columns=kline_cols)
-    for c in ["open", "high", "low", "close", "volume", "quote_volume",
-              "taker_buy_base", "taker_buy_quote"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c in ["open", "high", "low", "close", "volume", "quote_volume"]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c in ["taker_buy_base", "taker_buy_quote"]:
+        df[c] = pd.to_numeric(df.get(c, 0), errors="coerce") if c in df.columns else 0.0
     df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
     return df
 
