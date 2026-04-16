@@ -1,56 +1,60 @@
-name: Crypto Anomaly Scanner
+name: CMI-ASS — Crypto Signal Scanner
 
 on:
   schedule:
-    # Jalankan setiap 30 menit
-    - cron: '*/30 * * * *'
-  
-  # Bisa juga dijalankan manual
-  workflow_dispatch:
+    - cron: '*/15 * * * *'   # Setiap 15 menit, 24/7
+
+  workflow_dispatch:          # Bisa dijalankan manual kapanpun
     inputs:
       min_score:
-        description: 'Minimum anomaly score (0-100)'
+        description: 'Minimum confidence score (0–100)'
+        default: '40'
         required: false
-        default: '35'
       alert_level:
         description: 'Minimum alert level (LOW/MEDIUM/HIGH/CRITICAL)'
-        required: false
         default: 'MEDIUM'
+        required: false
+      max_coins:
+        description: 'Jumlah coin yang di-scan'
+        default: '250'
+        required: false
 
 jobs:
   scan:
+    name: Market Intelligence Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 25  # Max 25 menit per run
-    
+    timeout-minutes: 12
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
-      - name: Run Anomaly Scanner
+
+      - name: Run CMI-ASS Scanner
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MIN_VOLUME_24H: '100000'
-          MIN_SCORE: ${{ github.event.inputs.min_score || '35' }}
-          MAX_COINS_TO_SCAN: '200'
-          ALERT_LEVEL_FILTER: ${{ github.event.inputs.alert_level || 'MEDIUM' }}
+          TELEGRAM_BOT_TOKEN : ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID   : ${{ secrets.TELEGRAM_CHAT_ID }}
+          MIN_VOLUME_24H     : '150000'
+          MIN_SCORE          : ${{ github.event.inputs.min_score || '40' }}
+          MAX_COINS          : ${{ github.event.inputs.max_coins || '250' }}
+          ALERT_LEVEL        : ${{ github.event.inputs.alert_level || 'MEDIUM' }}
         run: |
-          python -m scanner.main
-      
-      - name: Upload logs (jika error)
+          python -m engine.main
+
+      - name: Upload log on failure
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: scanner-logs
+          name: scanner-error-log
           path: '*.log'
+          retention-days: 7
