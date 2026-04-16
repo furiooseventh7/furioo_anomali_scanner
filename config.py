@@ -1,8 +1,8 @@
 import os
 
 # ── Telegram ─────────────────────────────────────────────
-TELEGRAM_BOT_TOKEN = os.getenv("8705404171:AAHEeToHqL5jAF9ovmUN9GdJK8wajbwqBVQ", "")
-TELEGRAM_CHAT_ID   = os.getenv("6269154719", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # ── Filter Universe ───────────────────────────────────────
 MIN_VOLUME_24H_USD   = float(os.getenv("MIN_VOLUME_24H", "150000"))  # Min $150K/hari
