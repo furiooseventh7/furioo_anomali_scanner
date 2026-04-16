@@ -48,6 +48,7 @@ jobs:
           MIN_SCORE          : ${{ github.event.inputs.min_score || '40' }}
           MAX_COINS          : ${{ github.event.inputs.max_coins || '250' }}
           ALERT_LEVEL        : ${{ github.event.inputs.alert_level || 'MEDIUM' }}
+          PYTHONUNBUFFERED   : '1'   # ← TAMBAH INI: log langsung muncul real-time
         run: |
           python -m engine.main
 
