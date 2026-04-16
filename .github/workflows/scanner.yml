@@ -1,0 +1,56 @@
+name: Crypto Anomaly Scanner
+
+on:
+  schedule:
+    # Jalankan setiap 30 menit
+    - cron: '*/30 * * * *'
+  
+  # Bisa juga dijalankan manual
+  workflow_dispatch:
+    inputs:
+      min_score:
+        description: 'Minimum anomaly score (0-100)'
+        required: false
+        default: '35'
+      alert_level:
+        description: 'Minimum alert level (LOW/MEDIUM/HIGH/CRITICAL)'
+        required: false
+        default: 'MEDIUM'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25  # Max 25 menit per run
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run Anomaly Scanner
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MIN_VOLUME_24H: '100000'
+          MIN_SCORE: ${{ github.event.inputs.min_score || '35' }}
+          MAX_COINS_TO_SCAN: '200'
+          ALERT_LEVEL_FILTER: ${{ github.event.inputs.alert_level || 'MEDIUM' }}
+        run: |
+          python -m scanner.main
+      
+      - name: Upload logs (jika error)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scanner-logs
+          path: '*.log'
