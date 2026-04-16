@@ -15,8 +15,8 @@ SignalType = Literal["LONG", "SHORT", "BUY SPOT", "WATCH", "NEUTRAL"]
 class FinalSignal:
     symbol              : str
     signal_type         : SignalType
-    confidence_score    : float
-    alert_level         : str
+    confidence_score    : float       # 0–100
+    alert_level         : str         # LOW / MEDIUM / HIGH / CRITICAL
     price               : float
     entry_zone_low      : float
     entry_zone_high     : float
@@ -25,13 +25,11 @@ class FinalSignal:
     tp2                 : float
     tp3                 : float
     risk_reward         : float
-    reasoning_log       : list
+    reasoning_log       : list        # Daftar alasan terstruktur
     whale_score         : float
     derivatives_score   : float
     supply_score        : float
     pre_pump_score      : float
-    technical_score     : float
-    structure_score     : float
     price_change_24h    : float
     volume_24h          : float
     volume_spike        : float
@@ -42,20 +40,7 @@ class FinalSignal:
     selling_pressure    : str
     short_squeeze_risk  : str
     is_accumulating     : bool
-    rsi_1h              : float = 50.0
-    rsi_4h              : float = 50.0
-    macd_signal         : str   = "NEUTRAL"
-    bb_position         : str   = "MID"
-    ema_trend           : str   = "NEUTRAL"
-    support_level       : float = 0.0
-    resistance_level    : float = 0.0
-    bullish_fvg         : bool  = False
-    bullish_ob          : bool  = False
-    ob_level            : float = 0.0
-    double_bottom       : bool  = False
-    bull_flag           : bool  = False
-    extra_context       : dict  = field(default_factory=dict)
-
+    extra_context       : dict = field(default_factory=dict)
 
 def make_decision(
     symbol        : str,
@@ -66,30 +51,26 @@ def make_decision(
     deriv_res,
     supply_res,
     prepump_res,
-    tech_res,
-    struct_res,
     fear_greed    : dict,
 ) -> FinalSignal:
+    """
+    Sintesis semua analisis → FinalSignal dengan reasoning log lengkap.
+    """
 
     # ── Hitung Total Confluence Score ────────────────────
-    # Semua engine tetap ada, ditambah 2 engine baru
     raw_score = (
         whale_res.score    +   # max 25
         deriv_res.score    +   # max 30
         supply_res.score   +   # max 20
-        prepump_res.score  +   # max 25
-        tech_res.score     +   # max 30 (BARU)
-        struct_res.score       # max 20 (BARU)
-    )   # Total max = 150 → normalize ke 100
-
-    raw_score = raw_score / 150 * 100
+        prepump_res.score      # max 25
+    )   # Total max = 100
 
     # Market sentiment modifier
     fg_val = fear_greed.get("value", 50)
-    if fg_val <= 25:
-        raw_score += 3
-    elif fg_val >= 75:
-        raw_score -= 2
+    if fg_val <= 25:      # Extreme Fear → potensi bottom (good for longs)
+        raw_score += 5
+    elif fg_val >= 75:    # Extreme Greed → pasar terlalu panas
+        raw_score -= 3
 
     score = min(raw_score, 100.0)
 
@@ -97,37 +78,20 @@ def make_decision(
     fr   = deriv_res.latest_funding_rate
     oi_c = deriv_res.oi_change_24h_pct
 
-    # SHORT: funding ekstrem + OI turun + sell pressure + RSI overbought
+    # SHORT signal: funding sangat positif + OI turun + sell pressure tinggi
     if (fr >= 0.002 and oi_c < -20 and whale_res.sell_pressure > 0.65
-            and price_chg_24h > 20 and tech_res.rsi_1h >= 70):
+            and price_chg_24h > 20):
         signal_type = "SHORT"
     # BUY SPOT: tidak ada di futures atau micro cap
-    elif not deriv_[res.is](http://res.is)_in_futures or supply_res.category == "MICRO":
-        if score >= 40:
-            signal_type = "BUY SPOT"
-        else:
-            signal_type = "NEUTRAL"
-    # LONG: ada di futures, kondisi bullish, RSI tidak overbought
-    elif score >= 40 and whale_[res.buy](http://res.buy)_pressure >= 0.55 and tech_res.rsi_1h < 70:
+    elif not deriv_res.is_in_futures or supply_res.category == "MICRO":
+        signal_type = "BUY SPOT"
+    # LONG: ada di futures, kondisi bullish
+    elif score >= 40 and whale_res.buy_pressure >= 0.55:
         signal_type = "LONG"
-    elif score >= 28:
+    elif score >= 25:
         signal_type = "WATCH"
     else:
         signal_type = "NEUTRAL"
-
-    # Konfirmasi teknikal untuk LONG
-    if signal_type == "LONG":
-        tech_confirms = sum([
-            tech_res.rsi_1h <= 45,
-            tech_res.macd_signal in ["BULLISH_CROSS", "BULLISH"],
-            tech_[res.bb](http://res.bb)_position in ["LOWER", "SQUEEZE"],
-            tech_res.ema_trend == "BULLISH",
-            struct_res.bullish_fvg,
-            struct_res.bullish_ob,
-            struct_res.double_bottom,
-        ])
-        if tech_confirms == 0 and score < 60:
-            signal_type = "WATCH"
 
     # ── Alert Level ───────────────────────────────────────
     if score >= 78:
@@ -139,10 +103,99 @@ def make_decision(
     else:
         alert_level = "LOW"
 
-    # ── Risk Management ───────────────────────────────────
+    # ── Risk Management Calculation ───────────────────────
     sl_pct  = DEFAULT_SL_PCT
     tp1_pct = DEFAULT_TP1_PCT
     tp2_pct = DEFAULT_TP2_PCT
     tp3_pct = DEFAULT_TP3_PCT
 
-    if prep
+    # Adjust SL berdasarkan volatility
+    if prepump_res.volatility_contraction:
+        sl_pct = 0.04    # tight SL saat volatility rendah
+    if supply_res.category in ["MICRO", "SMALL"]:
+        sl_pct  = 0.07   # wider SL untuk small cap
+        tp3_pct = 0.80   # target lebih tinggi untuk micro/small cap
+
+    if signal_type == "LONG":
+        stop_loss = price * (1 - sl_pct)
+        tp1 = price * (1 + tp1_pct)
+        tp2 = price * (1 + tp2_pct)
+        tp3 = price * (1 + tp3_pct)
+        entry_low  = price * 0.995
+        entry_high = price * 1.005
+    elif signal_type == "SHORT":
+        stop_loss = price * (1 + sl_pct)
+        tp1 = price * (1 - tp1_pct)
+        tp2 = price * (1 - tp2_pct)
+        tp3 = price * (1 - tp3_pct)
+        entry_low  = price * 0.995
+        entry_high = price * 1.005
+    else:  # BUY SPOT / WATCH
+        stop_loss = price * (1 - sl_pct)
+        tp1 = price * (1 + tp1_pct)
+        tp2 = price * (1 + tp2_pct)
+        tp3 = price * (1 + tp3_pct)
+        entry_low  = price * 0.98   # sedikit lebih lebar untuk spot
+        entry_high = price * 1.01
+
+    risk   = abs(price - stop_loss)
+    reward = abs(tp2 - price)
+    rr     = reward / risk if risk > 0 else 0
+
+    # ── Bangun Reasoning Log ─────────────────────────────
+    reasoning = []
+
+    # Whale sonar
+    if whale_res.signals:
+        reasoning.extend(whale_res.signals)
+
+    # Derivatives
+    if deriv_res.signals:
+        reasoning.extend(deriv_res.signals)
+
+    # Supply
+    if supply_res.signals:
+        reasoning.extend(supply_res.signals)
+
+    # Pre-pump
+    if prepump_res.signals:
+        reasoning.extend(prepump_res.signals)
+
+    # Market context
+    fg_label = fear_greed.get("label", "Neutral")
+    reasoning.append(f"😱 Fear & Greed: {fg_val}/100 ({fg_label})")
+
+    if price_chg_24h > 15:
+        reasoning.append(f"⚠️ Harga sudah naik {price_chg_24h:.1f}% 24H — jangan FOMO!")
+    elif price_chg_24h < -10:
+        reasoning.append(f"📉 Koreksi {price_chg_24h:.1f}% 24H — potensi entry di area diskon")
+
+    return FinalSignal(
+        symbol              = symbol,
+        signal_type         = signal_type,
+        confidence_score    = score,
+        alert_level         = alert_level,
+        price               = price,
+        entry_zone_low      = entry_low,
+        entry_zone_high     = entry_high,
+        stop_loss           = stop_loss,
+        tp1                 = tp1,
+        tp2                 = tp2,
+        tp3                 = tp3,
+        risk_reward         = rr,
+        reasoning_log       = reasoning,
+        whale_score         = whale_res.score,
+        derivatives_score   = deriv_res.score,
+        supply_score        = supply_res.score,
+        pre_pump_score      = prepump_res.score,
+        price_change_24h    = price_chg_24h,
+        volume_24h          = volume_24h,
+        volume_spike        = prepump_res.volume_spike_ratio,
+        funding_rate        = deriv_res.latest_funding_rate if deriv_res.is_in_futures else None,
+        oi_change           = deriv_res.oi_change_24h_pct  if deriv_res.is_in_futures else None,
+        market_cap          = supply_res.market_cap,
+        supply_category     = supply_res.category,
+        selling_pressure    = supply_res.selling_pressure,
+        short_squeeze_risk  = deriv_res.short_squeeze_risk,
+        is_accumulating     = whale_res.is_accumulating,
+    )
