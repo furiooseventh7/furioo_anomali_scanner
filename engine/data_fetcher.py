@@ -394,7 +394,7 @@ def get_futures_symbols() -> set:
     Urutan: Bitget → MEXC
     """
     # ── Bitget mix perpetual ────────────────────────────────
-    data = _get_bitget_futures("/api/v2/mix/market/tickers?productType=USDT-FUTURES")
+    data = _get_bitget_futures("data = _get_bitget_futures("/api/v2/mix/market/tickers", {"productType": "USDT-FUTURES"})")
     if data and isinstance(data, list):
         symbols = {
             item["symbol"].replace("_UMCBL", "").replace("-USDT", "USDT")
