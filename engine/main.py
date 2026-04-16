@@ -1,6 +1,7 @@
 """
-Main Orchestrator — mengkoordinasi semua modul:
-fetch data → analyze → decide → alert Telegram.
+Main Orchestrator — CMI-ASS
+Mengkoordinasi semua modul: fetch → analyze → decide → alert Telegram.
+v2: Ditambahkan Technical Analysis Engine (RSI, MACD, FVG, OB, S/R, Patterns)
 """
 import os
 import time
@@ -21,6 +22,7 @@ from engine.whale_sonar        import analyze_whale
 from engine.derivatives_engine import analyze_derivatives
 from engine.supply_analyzer    import analyze_supply
 from engine.pre_pump_detector  import analyze_pre_pump
+from engine.technical_engine   import analyze_technical   # ← BARU
 from engine.decision_engine    import make_decision, FinalSignal
 from engine.telegram_gateway   import (
     format_and_send_signal, send_scan_summary, send_startup_message
@@ -39,18 +41,20 @@ def should_alert(level: str, min_level: str) -> bool:
 
 def scan_single(row: pd.Series, futures_symbols: set,
                 cg_data: dict, fear_greed: dict) -> Optional[FinalSignal]:
-    symbol  = row["symbol"]
-    price   = float(row["lastPrice"])
-    chg_24h = float(row["priceChangePercent"])
-    vol_24h = float(row["quoteVolume"])
-    base    = symbol.replace("USDT","")
+    symbol    = row["symbol"]
+    price     = float(row["lastPrice"])
+    chg_24h   = float(row["priceChangePercent"])
+    vol_24h   = float(row["quoteVolume"])
+    base      = symbol.replace("USDT", "")
 
+    # ── Filter kasar ──────────────────────────────────────
     if price <= 0 or vol_24h < MIN_VOLUME_24H_USD:
         return None
     if chg_24h > 80:
         return None
 
     try:
+        # ── Engine lama (tidak diubah sama sekali) ────────
         whale_res   = analyze_whale(symbol)
         time.sleep(0.15)
 
@@ -62,6 +66,11 @@ def scan_single(row: pd.Series, futures_symbols: set,
         prepump_res = analyze_pre_pump(symbol)
         time.sleep(0.15)
 
+        # ── Engine baru: Technical Analysis ──────────────
+        ta_res = analyze_technical(symbol, price)   # ← BARU
+        time.sleep(0.15)
+
+        # ── Buat keputusan (ta_res dikirim sebagai arg) ──
         signal = make_decision(
             symbol        = symbol,
             price         = price,
@@ -72,60 +81,52 @@ def scan_single(row: pd.Series, futures_symbols: set,
             supply_res    = supply_res,
             prepump_res   = prepump_res,
             fear_greed    = fear_greed,
+            ta_res        = ta_res,             # ← BARU
         )
 
         if signal.confidence_score >= MIN_CONFLUENCE_SCORE and signal.signal_type != "NEUTRAL":
             logger.info(
                 f"SIGNAL | {symbol:16s} | {signal.signal_type:8s} | "
-                f"Score {signal.confidence_score:.0f} | {signal.alert_level}"
+                f"Score {signal.confidence_score:.0f} | {signal.alert_level} | "
+                f"TA: {signal.ta_bias}"
             )
             return signal
 
     except Exception as e:
-        logger.error(f"Error scanning {symbol}: {e}")
+        logger.error(f"Error scanning {symbol}: {e}", exc_info=True)
 
     return None
 
 
 def run():
     logger.info("=" * 60)
-    logger.info("CMI-ASS — Crypto Market Intelligence System START")
+    logger.info("CMI-ASS v2 — Technical Analysis Engine ACTIVE")
     logger.info("=" * 60)
 
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.critical("❌ TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID tidak ada di secrets!")
-        raise SystemExit(1)
+        return
 
     send_startup_message()
 
     # ── Fetch global data ─────────────────────────────────
     logger.info("📡 Fetching global market data...")
-    df_ticker   = get_all_tickers_24h()   # auto-fallback ke CoinGecko jika Binance 451
-    futures_set = get_futures_symbols()   # bisa empty set jika Binance Futures diblokir
+    df_ticker   = get_all_tickers_24h()
+    futures_set = get_futures_symbols()
     fear_greed  = get_fear_greed_index()
 
     if df_ticker.empty:
-        logger.error(
-            "❌ Gagal ambil ticker data dari semua sumber (Binance + CoinGecko). "
-            "Cek koneksi jaringan runner."
-        )
-        raise SystemExit(1)   # tandai job GitHub Actions sebagai FAILED
-
-    if not futures_set:
-        logger.warning(
-            "⚠️ Futures symbols kosong — scan tetap jalan tapi "
-            "sinyal derivatif tidak akan akurat."
-        )
+        logger.error("Gagal ambil ticker data")
+        return
 
     logger.info(f"✅ Tickers: {len(df_ticker)} | Futures: {len(futures_set)} | F&G: {fear_greed}")
 
-    # ── CoinGecko supply data ─────────────────────────────
     logger.info("🦎 Fetching CoinGecko supply data...")
     top_symbols = df_ticker.nlargest(250, "quoteVolume")["symbol"].tolist()
     cg_data = get_coingecko_data(top_symbols)
     logger.info(f"✅ CoinGecko data: {len(cg_data)} coins")
 
-    # ── Filter kandidat ───────────────────────────────────
+    # ── Filter & prioritisasi ─────────────────────────────
     candidates = df_ticker[
         (df_ticker["quoteVolume"] >= MIN_VOLUME_24H_USD) &
         (df_ticker["priceChangePercent"].abs() < 80)
@@ -134,7 +135,7 @@ def run():
     candidates["vol_score"] = candidates["quoteVolume"] / (candidates["priceChangePercent"].abs() + 1)
     candidates = candidates.nlargest(MAX_COINS_TO_SCAN, "vol_score")
 
-    logger.info(f"🔍 Akan scan {len(candidates)} coins...")
+    logger.info(f"🔍 Akan scan {len(candidates)} coins (dengan TA engine)...")
 
     # ── Main scan loop ────────────────────────────────────
     signals: List[FinalSignal] = []
@@ -146,12 +147,12 @@ def run():
             signals.append(sig)
 
         scanned += 1
-        if scanned % 25 == 0:
+        if scanned % 20 == 0:
             logger.info(f"Progress: {scanned}/{len(candidates)} | Signals: {len(signals)}")
 
         time.sleep(0.1)
 
-    # ── Kirim alert ───────────────────────────────────────
+    # ── Sort & kirim alert ────────────────────────────────
     signals.sort(key=lambda x: x.confidence_score, reverse=True)
 
     alerts_sent = 0
