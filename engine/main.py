@@ -12,7 +12,7 @@ from typing import List, Optional
 from config import (
     MIN_VOLUME_24H_USD, MAX_COINS_TO_SCAN,
     MIN_CONFLUENCE_SCORE, ALERT_MIN_LEVEL, ALERT_LEVELS,
-    TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHAT_IDS
+    TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 )
 from engine.data_fetcher import (
     get_all_tickers_24h, get_futures_symbols,
@@ -103,16 +103,9 @@ def run():
     logger.info("CMI-ASS v2 — Technical Analysis Engine ACTIVE")
     logger.info("=" * 60)
 
-    # Validasi Telegram: butuh BOT_TOKEN + minimal salah satu chat ID
-    # TELEGRAM_CHAT_IDS  = satu atau lebih chat ID dipisah koma (untuk kirim ke banyak grup)
-    # TELEGRAM_CHAT_ID   = satu chat ID (backward compat)
-    has_chat_target = bool(TELEGRAM_CHAT_IDS.strip()) or bool(TELEGRAM_CHAT_ID.strip())
-    if not TELEGRAM_BOT_TOKEN:
-        logger.critical("❌ TELEGRAM_BOT_TOKEN tidak ada di secrets!")
-        raise SystemExit(1)
-    if not has_chat_target:
-        logger.critical("❌ TELEGRAM_CHAT_ID atau TELEGRAM_CHAT_IDS tidak ada di secrets!")
-        raise SystemExit(1)
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.critical("❌ TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID tidak ada di secrets!")
+        return
 
     send_startup_message()
 
