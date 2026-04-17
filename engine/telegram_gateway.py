@@ -9,18 +9,14 @@ from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHAT_IDS
 logger = logging.getLogger(__name__)
 
 def _get_chat_ids() -> list[str]:
-    # Prioritas: TELEGRAM_CHAT_IDS (bisa banyak, dipisah koma)
     if TELEGRAM_CHAT_IDS.strip():
         return [c.strip() for c in TELEGRAM_CHAT_IDS.split(",") if c.strip()]
-
-    # Fallback: single chat id lama
     if TELEGRAM_CHAT_ID:
         return [TELEGRAM_CHAT_ID]
-
     return []
 
 def _send(message: str, parse_mode: str = "HTML") -> bool:
-    url = f"[api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage](https://api.telegram.org/bot%7BTELEGRAM_BOT_TOKEN%7D/sendMessage)"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     chat_ids = _get_chat_ids()
 
     if not chat_ids:
@@ -28,10 +24,9 @@ def _send(message: str, parse_mode: str = "HTML") -> bool:
         return False
 
     success_count = 0
-
     for chat_id in chat_ids:
         try:
-            r = [requests.post](http://requests.post)(url, json={
+            r = requests.post(url, json={
                 "chat_id": chat_id,
                 "text": message,
                 "parse_mode": parse_mode,
