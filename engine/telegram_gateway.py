@@ -4,43 +4,25 @@ Format pesan clean dengan Reasoning Log + TA section baru.
 """
 import requests
 import logging
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHAT_IDS
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 logger = logging.getLogger(__name__)
 
-def _get_chat_ids() -> list[str]:
-    if TELEGRAM_CHAT_IDS.strip():
-        return [c.strip() for c in TELEGRAM_CHAT_IDS.split(",") if c.strip()]
-    if TELEGRAM_CHAT_ID:
-        return [TELEGRAM_CHAT_ID]
-    return []
 
 def _send(message: str, parse_mode: str = "HTML") -> bool:
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    chat_ids = _get_chat_ids()
-
-    if not chat_ids:
-        logger.error("No Telegram chat IDs configured")
+    try:
+        r = requests.post(url, json={
+            "chat_id"                 : TELEGRAM_CHAT_ID,
+            "text"                    : message,
+            "parse_mode"              : parse_mode,
+            "disable_web_page_preview": True,
+        }, timeout=10)
+        return r.status_code == 200
+    except Exception as e:
+        logger.error(f"Telegram send error: {e}")
         return False
 
-    success_count = 0
-    for chat_id in chat_ids:
-        try:
-            r = requests.post(url, json={
-                "chat_id": chat_id,
-                "text": message,
-                "parse_mode": parse_mode,
-                "disable_web_page_preview": True,
-            }, timeout=10)
-
-            if r.status_code == 200:
-                success_count += 1
-            else:
-                logger.error(f"Telegram send failed for {chat_id}: {r.status_code} {r.text}")
-        except Exception as e:
-            logger.error(f"Telegram send error for {chat_id}: {e}")
-
-    return success_count > 0
 
 def _fmt_price(p: float) -> str:
     if p >= 1000:   return f"${p:,.2f}"
