@@ -3,7 +3,6 @@ import os
 # ── Telegram ─────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
-TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_IDS", "")
 
 # ── Filter Universe ───────────────────────────────────────
 MIN_VOLUME_24H_USD   = float(os.getenv("MIN_VOLUME_24H", "150000"))
