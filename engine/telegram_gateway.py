@@ -172,7 +172,7 @@ def format_and_send_signal(sig) -> bool:
     msg += f"<a href='https://coinmarketcap.com/currencies/{base.lower()}/'>CMC</a>\n\n"
 
     msg += f"⚡ <i>CMI-ASS Bot v2 | by Furiooseventh</i>\n"
-    msg += f"⚠️ <i>BUKAN financial advice. Always DYOR & manage risk!</i>"
+    msg += f"⚠️ <i>BUKAN financial advice. Always DYOR & manage risk!</i>\n"
     msg += f"⚠️ <i>NEK LAGI TRADE OJO NGELAMUN</i>"
 
     return _send(msg)
@@ -205,7 +205,7 @@ def send_scan_summary(total_scanned: int, signals: list, fear_greed: dict) -> bo
 
 
 def send_startup_message() -> bool:
-    msg  = "🚀 <b>CMI-ASS v2 Scanner AKTIF</b>\n"
+    msg  = "🚀 <b>Furioo CMI-ASS v3 Scanner AKTIF</b>\n"
     msg += "━━━━━━━━━━━━━━━━━━━━━━━━\n"
     msg += "✅ Screener berhasil dijalankan\n"
     msg += "🔍 Memulai scanning pasar crypto...\n"
