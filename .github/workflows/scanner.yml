@@ -44,7 +44,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN : ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID   : ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
           MIN_VOLUME_24H     : '150000'
           MIN_SCORE          : ${{ github.event.inputs.min_score || '40' }}
           MAX_COINS          : ${{ github.event.inputs.max_coins || '250' }}
