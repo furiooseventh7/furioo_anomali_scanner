@@ -8,15 +8,15 @@ on:
     inputs:
       min_score:
         description: 'Minimum confidence score (0–100)'
-        default: '40'
+        default: '65'
         required: false
       alert_level:
         description: 'Minimum alert level (LOW/MEDIUM/HIGH/CRITICAL)'
-        default: 'MEDIUM'
+        default: 'HIGH'
         required: false
       max_coins:
         description: 'Jumlah coin yang di-scan'
-        default: '100'
+        default: '250'
         required: false
 
 jobs:
