@@ -1,0 +1,50 @@
+name: CMI-ASS v7 Scanner
+
+on:
+  schedule:
+    - cron: '0 * * * *'      # Setiap 1 jam, 24/7
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run CMI-ASS v7 Scanner
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # ── Optional: Chart Screenshot ──────────────────
+          # Daftar gratis di https://screenshotone.com (100/bulan)
+          SCREENSHOTONE_KEY:  ${{ secrets.SCREENSHOTONE_KEY }}
+
+          # ── Optional: On-Chain DEX Tracking (v7 NEW) ────
+          # Flipside Crypto: daftar gratis di https://flipsidecrypto.xyz
+          # Tanpa key tetap bisa, tapi rate limit lebih ketat
+          FLIPSIDE_API_KEY:   ${{ secrets.FLIPSIDE_API_KEY }}
+
+          # Dune Analytics: https://dune.com/settings/api (free tier ada)
+          DUNE_API_KEY:       ${{ secrets.DUNE_API_KEY }}
+
+          # ── Tuning (opsional, ada default) ──────────────
+          MIN_VOLUME_24H:     ${{ vars.MIN_VOLUME_24H || '150000' }}
+          MAX_COINS:          ${{ vars.MAX_COINS || '250' }}
+          MIN_SCORE:          ${{ vars.MIN_SCORE || '65' }}
+          ALERT_LEVEL:        ${{ vars.ALERT_LEVEL || 'HIGH' }}
+          MIN_ONCHAIN_USD:    ${{ vars.MIN_ONCHAIN_USD || '500000' }}
+          MIN_SPIKE_MAGNITUDE: ${{ vars.MIN_SPIKE_MAGNITUDE || '3.0' }}
+
+        run: python engine/main.py
