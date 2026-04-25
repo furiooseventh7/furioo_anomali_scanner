@@ -42,8 +42,8 @@ jobs:
           # ── Tuning (opsional, ada default) ──────────────
           MIN_VOLUME_24H:     ${{ vars.MIN_VOLUME_24H || '150000' }}
           MAX_COINS:          ${{ vars.MAX_COINS || '250' }}
-          MIN_SCORE:          ${{ vars.MIN_SCORE || '40' }}
-          ALERT_LEVEL:        ${{ vars.ALERT_LEVEL || 'MEDIUM' }}
+          MIN_SCORE:          ${{ vars.MIN_SCORE || '70' }}
+          ALERT_LEVEL:        ${{ vars.ALERT_LEVEL || 'HIGH' }}
           MIN_ONCHAIN_USD:    ${{ vars.MIN_ONCHAIN_USD || '500000' }}
           MIN_SPIKE_MAGNITUDE: ${{ vars.MIN_SPIKE_MAGNITUDE || '3.0' }}
 
